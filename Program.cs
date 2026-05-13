@@ -8,35 +8,65 @@ using System.Threading;
 using System.Threading.Tasks;
 
 string domain = Environment.GetEnvironmentVariable("INPUT_DOMAIN") ?? "google.com";
+string customIpsStr = Environment.GetEnvironmentVariable("INPUT_CUSTOM_IPS") ?? "";
 string startIpStr = Environment.GetEnvironmentVariable("INPUT_START_IP") ?? "192.168.1.1";
 string endIpStr = Environment.GetEnvironmentVariable("INPUT_END_IP") ?? "192.168.1.254";
 
-if (!IPAddress.TryParse(startIpStr, out IPAddress startIp) || !IPAddress.TryParse(endIpStr, out IPAddress endIp))
+List<IPAddress> targetIps = new List<IPAddress>();
+
+if (!string.IsNullOrWhiteSpace(customIpsStr))
 {
-    Console.WriteLine("Invalid IP range");
-    return;
+    var separators = new char[] { '\n', '\r', ',', ';', ' ' };
+    var parts = customIpsStr.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+    foreach (var part in parts)
+    {
+        string trimmed = part.Trim();
+        if (IPAddress.TryParse(trimmed, out IPAddress ip))
+            targetIps.Add(ip);
+        else
+            Console.WriteLine($"⚠️ Invalid IP ignored: {trimmed}");
+    }
+    if (targetIps.Count == 0)
+    {
+        Console.WriteLine("No valid custom IPs provided. Exiting.");
+        return;
+    }
+    Console.WriteLine($"Using {targetIps.Count} custom IP(s):");
+    foreach (var ip in targetIps) Console.WriteLine($"  - {ip}");
+}
+else
+{
+    // استفاده از رنج
+    if (!IPAddress.TryParse(startIpStr, out IPAddress startIp) || !IPAddress.TryParse(endIpStr, out IPAddress endIp))
+    {
+        Console.WriteLine("Invalid IP range");
+        return;
+    }
+    uint start = IpToUint(startIp);
+    uint end = IpToUint(endIp);
+    if (start > end)
+    {
+        Console.WriteLine("Start IP must be less than or equal End IP");
+        return;
+    }
+    for (uint ip = start; ip <= end; ip++)
+        targetIps.Add(UintToIp(ip));
+    Console.WriteLine($"Using IP range from {startIpStr} to {endIpStr} ({targetIps.Count} IPs)");
 }
 
-uint start = IpToUint(startIp);
-uint end = IpToUint(endIp);
-if (start > end)
-{
-    Console.WriteLine("Start IP must be less than or equal End IP");
-    return;
-}
+// ذخیره خروجی در فایل
+string logFile = "scan_output.txt";
+using StreamWriter fileWriter = new StreamWriter(logFile);
+Console.SetOut(new MultiTextWriter(Console.Out, fileWriter));
 
-Console.WriteLine($"Scanning DNS servers from {startIpStr} to {endIpStr} for domain '{domain}'...");
+Console.WriteLine($"\nScanning DNS servers for domain '{domain}'...");
 Console.WriteLine("--------------------------------------------------");
-
-List<IPAddress> range = new List<IPAddress>();
-for (uint ip = start; ip <= end; ip++)
-    range.Add(UintToIp(ip));
 
 int maxConcurrent = 20;
 int completed = 0;
 object lockObj = new object();
 using var semaphore = new SemaphoreSlim(maxConcurrent);
-var tasks = range.Select(ip => Task.Run(async () =>
+var tasks = targetIps.Select(ip => Task.Run(async () =>
 {
     await semaphore.WaitAsync();
     try
@@ -59,8 +89,11 @@ var tasks = range.Select(ip => Task.Run(async () =>
 
 await Task.WhenAll(tasks);
 Console.WriteLine("--------------------------------------------------");
-Console.WriteLine($"Scan completed. Total IPs scanned: {range.Count}");
+Console.WriteLine($"Scan completed. Total IPs scanned: {targetIps.Count}");
+Console.Out.Flush();
 
+// ***********************************************************
+// توابع کمکی (بدون تغییر)
 static uint IpToUint(IPAddress ip)
 {
     byte[] bytes = ip.GetAddressBytes();
@@ -156,4 +189,23 @@ class DnsResult
     public string Error { get; set; } = "";
     public List<string> ResolvedIPs { get; set; } = new List<string>();
     public long ResponseTimeMs { get; set; }
+}
+
+public class MultiTextWriter : TextWriter
+{
+    private readonly TextWriter[] _writers;
+    public MultiTextWriter(params TextWriter[] writers) => _writers = writers;
+    public override Encoding Encoding => Encoding.UTF8;
+    public override void Write(char value)
+    {
+        foreach (var w in _writers) w.Write(value);
+    }
+    public override void Write(string value)
+    {
+        foreach (var w in _writers) w.Write(value);
+    }
+    public override void Flush()
+    {
+        foreach (var w in _writers) w.Flush();
+    }
 }
