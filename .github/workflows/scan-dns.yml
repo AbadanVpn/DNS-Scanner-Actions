@@ -1,0 +1,41 @@
+name: DNS Range Scanner
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Domain to resolve'
+        required: true
+        default: 'google.com'
+      start_ip:
+        description: 'Start IP (e.g., 192.168.1.1)'
+        required: true
+        default: '192.168.1.1'
+      end_ip:
+        description: 'End IP (e.g., 192.168.1.254)'
+        required: true
+        default: '192.168.1.254'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build and Run Scanner
+        run: |
+          dotnet build
+          dotnet run -- --domain "${{ github.event.inputs.domain }}" --start "${{ github.event.inputs.start_ip }}" --end "${{ github.event.inputs.end_ip }}"
+        env:
+          INPUT_DOMAIN: ${{ github.event.inputs.domain }}
+          INPUT_START_IP: ${{ github.event.inputs.start_ip }}
+          INPUT_END_IP: ${{ github.event.inputs.end_ip }}
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-log
+          path: output.txt  # فعلاً خروجی را در یک فایل ذخیره نمی‌کند، ولی می‌توانیم لاگ را ذخیره کنیم
