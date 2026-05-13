@@ -1,3 +1,5 @@
+#  [فارسی](https://github.com/AbadanVpn/DNS-Scanner-Actions/blob/main/README%20FA.md)
+
 # 📡 DNS Scanner Actions
 
 A C#-based DNS scanner for use in GitHub Actions. This tool queries a specified domain against a list of DNS servers (IP inputs) concurrently, records successful and failed results, and uploads the scan log as an `Artifact` in GitHub Actions.
