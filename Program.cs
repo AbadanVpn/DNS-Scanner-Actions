@@ -6,55 +6,39 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.IO;
 
 string domain = Environment.GetEnvironmentVariable("INPUT_DOMAIN") ?? "google.com";
-string customIpsStr = Environment.GetEnvironmentVariable("INPUT_CUSTOM_IPS") ?? "";
-string startIpStr = Environment.GetEnvironmentVariable("INPUT_START_IP") ?? "192.168.1.1";
-string endIpStr = Environment.GetEnvironmentVariable("INPUT_END_IP") ?? "192.168.1.254";
+string ipsFilePath = "ips.txt";  // فایل حاوی آی‌پی‌ها (هر خط یک آی‌پی)
 
 List<IPAddress> targetIps = new List<IPAddress>();
 
-if (!string.IsNullOrWhiteSpace(customIpsStr))
+if (File.Exists(ipsFilePath))
 {
-    var separators = new char[] { '\n', '\r', ',', ';', ' ' };
-    var parts = customIpsStr.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-    foreach (var part in parts)
+    var lines = File.ReadAllLines(ipsFilePath);
+    foreach (var line in lines)
     {
-        string trimmed = part.Trim();
-        if (IPAddress.TryParse(trimmed, out IPAddress ip))
+        string trimmed = line.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmed) && IPAddress.TryParse(trimmed, out IPAddress ip))
             targetIps.Add(ip);
-        else
+        else if (!string.IsNullOrWhiteSpace(trimmed))
             Console.WriteLine($"⚠️ Invalid IP ignored: {trimmed}");
     }
     if (targetIps.Count == 0)
     {
-        Console.WriteLine("No valid custom IPs provided. Exiting.");
+        Console.WriteLine("No valid IPs found in ips.txt. Exiting.");
         return;
     }
-    Console.WriteLine($"Using {targetIps.Count} custom IP(s):");
+    Console.WriteLine($"Loaded {targetIps.Count} IP(s) from ips.txt:");
     foreach (var ip in targetIps) Console.WriteLine($"  - {ip}");
 }
 else
 {
-    // استفاده از رنج
-    if (!IPAddress.TryParse(startIpStr, out IPAddress startIp) || !IPAddress.TryParse(endIpStr, out IPAddress endIp))
-    {
-        Console.WriteLine("Invalid IP range");
-        return;
-    }
-    uint start = IpToUint(startIp);
-    uint end = IpToUint(endIp);
-    if (start > end)
-    {
-        Console.WriteLine("Start IP must be less than or equal End IP");
-        return;
-    }
-    for (uint ip = start; ip <= end; ip++)
-        targetIps.Add(UintToIp(ip));
-    Console.WriteLine($"Using IP range from {startIpStr} to {endIpStr} ({targetIps.Count} IPs)");
+    Console.WriteLine("File ips.txt not found. Please create it with one IP per line.");
+    return;
 }
 
-// ذخیره خروجی در فایل
+// ادامه اسکن (بدون تغییر از قبل)
 string logFile = "scan_output.txt";
 using StreamWriter fileWriter = new StreamWriter(logFile);
 Console.SetOut(new MultiTextWriter(Console.Out, fileWriter));
@@ -93,7 +77,7 @@ Console.WriteLine($"Scan completed. Total IPs scanned: {targetIps.Count}");
 Console.Out.Flush();
 
 // ***********************************************************
-// توابع کمکی (بدون تغییر)
+// توابع کمکی (همان‌های قبل)
 static uint IpToUint(IPAddress ip)
 {
     byte[] bytes = ip.GetAddressBytes();
