@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 string domain = Environment.GetEnvironmentVariable("INPUT_DOMAIN") ?? "google.com";
 string startIpStr = Environment.GetEnvironmentVariable("INPUT_START_IP") ?? "192.168.1.1";
