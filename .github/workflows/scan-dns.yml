@@ -7,13 +7,17 @@ on:
         description: 'Domain to resolve'
         required: true
         default: 'google.com'
+      custom_ips:
+        description: 'Custom IPs (comma separated, e.g., 192.168.1.1,8.8.8.8) - if empty, uses range below'
+        required: false
+        default: ''
       start_ip:
-        description: 'Start IP (e.g., 192.168.1.1)'
-        required: true
+        description: 'Start IP (if custom_ips empty)'
+        required: false
         default: '192.168.1.1'
       end_ip:
-        description: 'End IP (e.g., 192.168.1.254)'
-        required: true
+        description: 'End IP (if custom_ips empty)'
+        required: false
         default: '192.168.1.254'
 
 jobs:
@@ -29,13 +33,14 @@ jobs:
       - name: Build and Run Scanner
         run: |
           dotnet build
-          dotnet run -- --domain "${{ github.event.inputs.domain }}" --start "${{ github.event.inputs.start_ip }}" --end "${{ github.event.inputs.end_ip }}"
+          dotnet run
         env:
           INPUT_DOMAIN: ${{ github.event.inputs.domain }}
+          INPUT_CUSTOM_IPS: ${{ github.event.inputs.custom_ips }}
           INPUT_START_IP: ${{ github.event.inputs.start_ip }}
           INPUT_END_IP: ${{ github.event.inputs.end_ip }}
-      - name: Upload results
+      - name: Upload log
         uses: actions/upload-artifact@v4
         with:
           name: scan-log
-          path: output.txt  # فعلاً خروجی را در یک فایل ذخیره نمی‌کند، ولی می‌توانیم لاگ را ذخیره کنیم
+          path: scan_output.txt
